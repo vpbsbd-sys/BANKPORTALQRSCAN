@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>Bank Receipt Printer</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;800&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jsQR/1.4.0/jsQR.min.js"></script>
+<style>
+:root{--navy:#0a2540;--gold:#c9a84c;--gold-light:#f0d58c;--blue:#1a4b8c;--green:#1a7a4a;--red:#c0392b;--cream:#fdfaf4;--border:#d0dbe8;}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'DM Sans',sans-serif;background:var(--cream);min-height:100vh;}
+
+.header{background:linear-gradient(135deg,var(--navy),#163262);padding:14px 18px;display:flex;align-items:center;gap:12px;}
+.logo{width:44px;height:44px;background:var(--gold);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.header-text h1{font-family:'Playfair Display',serif;color:#fff;font-size:17px;}
+.header-text p{color:var(--gold-light);font-size:11px;margin-top:2px;}
+
+/* RECEIPT MODE */
+#receipt-mode{display:none;}
+.action-bar{background:var(--navy);padding:12px 18px;display:flex;gap:10px;position:sticky;top:0;z-index:10;}
+.btn{padding:12px 24px;border-radius:24px;border:none;font-family:'DM Sans',sans-serif;font-weight:700;font-size:15px;cursor:pointer;display:flex;align-items:center;gap:6px;flex:1;justify-content:center;}
+.btn-gold{background:var(--gold);color:var(--navy);}
+.btn-outline{background:transparent;border:2px solid rgba(255,255,255,0.4);color:#fff;}
+.receipt-body{padding:16px;max-width:760px;margin:0 auto;}
+
+/* CAMERA MODE */
+#camera-mode{display:none;}
+#scan-view{position:relative;width:100%;}
+#video{width:100%;display:block;max-height:65vh;object-fit:cover;background:#000;}
+.corner{position:absolute;width:30px;height:30px;border-color:var(--gold);border-style:solid;}
+.corner.tl{top:15px;left:15px;border-width:4px 0 0 4px;}
+.corner.tr{top:15px;right:15px;border-width:4px 4px 0 0;}
+.corner.bl{bottom:15px;left:15px;border-width:0 0 4px 4px;}
+.corner.br{bottom:15px;right:15px;border-width:0 4px 4px 0;}
+.scanline{position:absolute;left:15px;right:15px;height:2px;background:var(--gold);box-shadow:0 0 8px var(--gold);animation:scan 2s linear infinite;}
+@keyframes scan{0%{top:15px}100%{top:calc(100% - 15px)}}
+.scan-status{padding:14px;text-align:center;font-size:14px;font-weight:600;}
+.s-wait{background:#1a1a2e;color:var(--gold-light);}
+.s-ok{background:#0d3320;color:#4eff91;}
+.s-err{background:#3a0a0a;color:#ff9090;}
+
+/* WAITING MODE */
+#waiting-mode{padding:30px 16px;text-align:center;}
+#waiting-mode .icon{font-size:70px;margin-bottom:16px;display:block;}
+#waiting-mode h2{font-family:'Playfair Display',serif;font-size:22px;color:var(--navy);margin-bottom:10px;}
+#waiting-mode p{color:#666;font-size:14px;line-height:1.7;margin-bottom:20px;}
+.big-btn{width:100%;max-width:380px;padding:16px;border-radius:30px;border:none;font-family:'DM Sans',sans-serif;font-weight:700;font-size:16px;cursor:pointer;margin:6px auto;display:block;}
+.big-btn-navy{background:var(--navy);color:#fff;}
+.big-btn-gold{background:linear-gradient(135deg,var(--gold),#a07830);color:#fff;box-shadow:0 4px 14px rgba(201,168,76,0.3);}
+
+/* SLIP */
+.slip-page{width:100%;font-family:'DM Sans',Arial,sans-serif;}
+.slip-top{text-align:center;font-size:11px;color:#666;border-bottom:2px dashed #ccc;padding-bottom:10px;margin-bottom:14px;}
+.slip-top strong{display:block;font-size:14px;color:#0a2540;margin-bottom:3px;}
+.slip-wrap{display:flex;gap:14px;margin-bottom:14px;}
+.slip{flex:1;border:2px solid #000;padding:12px;font-size:11px;position:relative;}
+.slip-bank-copy{background:#d4e8ff;}.slip-cust-copy{background:#fff9e6;}
+.slip-copy-tag{position:absolute;top:6px;right:8px;font-size:10px;font-weight:700;text-transform:uppercase;border:1px solid #000;padding:2px 6px;}
+.slip-header{text-align:center;border-bottom:2px solid #000;padding-bottom:8px;margin-bottom:10px;}
+.slip-bank-name{font-size:13px;font-weight:800;text-transform:uppercase;}
+.slip-type{font-size:11px;font-weight:700;letter-spacing:1px;margin-top:4px;}
+.slip-grid{display:grid;grid-template-columns:1fr 1fr;border:1px solid #000;margin-bottom:8px;}
+.slip-cell{padding:5px 7px;border-right:1px solid #ccc;font-size:11px;}
+.slip-cell:last-child{border-right:none;}
+.slip-cell strong{display:block;font-size:9px;text-transform:uppercase;color:#555;}
+.slip-table{width:100%;border-collapse:collapse;margin-bottom:8px;}
+.slip-table th{background:rgba(0,0,0,0.08);font-size:10px;text-transform:uppercase;padding:5px 7px;border:1px solid #999;text-align:left;}
+.slip-table td{padding:5px 7px;border:1px solid #bbb;}
+.slip-words{border:1px solid #000;padding:6px 8px;font-size:11px;margin-bottom:8px;background:rgba(255,255,255,0.5);}
+.slip-words strong{font-size:10px;text-transform:uppercase;display:block;margin-bottom:2px;color:#444;}
+.slip-ref{font-size:9px;color:#777;margin-top:6px;}
+.slip-signs{display:flex;justify-content:space-between;margin-top:18px;font-size:10px;}
+.slip-sign{text-align:center;}
+.slip-sign-line{width:90px;border-top:1px solid #000;margin:0 auto 3px;}
+.slip-footer{text-align:center;font-size:10px;color:#999;border-top:2px dashed #ccc;padding-top:8px;}
+
+@media print{
+  .header,.action-bar,#waiting-mode,#camera-mode,canvas{display:none!important;}
+  #receipt-mode{display:block!important;}
+  .receipt-body{padding:0;}
+  body{background:#fff;}
+  .slip-wrap{page-break-inside:avoid;}
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">🏦</div>
+  <div class="header-text">
+    <h1>Kolhapur Co-operative Bank</h1>
+    <p>Self-Service Receipt Printer</p>
+  </div>
+</div>
+
+<!-- RECEIPT MODE: shown when URL has #data -->
+<div id="receipt-mode">
+  <div class="action-bar">
+    <button class="btn btn-gold" onclick="window.print()">🖨️ Print Receipt</button>
+    <button class="btn btn-outline" onclick="goBack()">← Back</button>
+  </div>
+  <div class="receipt-body" id="receipt-body"></div>
+</div>
+
+<!-- WAITING MODE: shown on tablet at bank (no URL data) -->
+<div id="waiting-mode">
+  <span class="icon">🏦</span>
+  <h2>Bank Receipt Kiosk</h2>
+  <p>Customer: scan the QR code from<br><strong>bank_portal.html</strong><br>using your phone camera or any QR app.<br>The receipt will open automatically.</p>
+  <hr style="margin:20px 0;border-color:var(--border);">
+  <p style="font-size:13px;color:#888;">Bank staff: use camera scanner below</p>
+  <button class="big-btn big-btn-navy" onclick="startCamera()">📷 Open Camera Scanner</button>
+</div>
+
+<!-- CAMERA MODE: for staff who want to scan manually -->
+<div id="camera-mode">
+  <div id="scan-view">
+    <video id="video" autoplay playsinline muted></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+    <div style="position:absolute;inset:0;pointer-events:none;">
+      <div class="corner tl"></div><div class="corner tr"></div>
+      <div class="corner bl"></div><div class="corner br"></div>
+      <div class="scanline"></div>
+    </div>
+  </div>
+  <div class="scan-status s-wait" id="cam-status">📷 Point at customer QR code</div>
+  <button class="big-btn big-btn-gold" style="margin-top:14px;" onclick="stopCamera()">← Back</button>
+</div>
+
+<script>
+// ====== AMOUNT TO WORDS ======
+function numWords(n){
+  n=parseInt(n)||0;if(!n)return '';
+  const a=['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen'];
+  const b=['','','Twenty','Thirty','Forty','Fifty','Sixty','Seventy','Eighty','Ninety'];
+  const g=x=>{let s='';if(x>=100){s+=a[Math.floor(x/100)]+' Hundred ';x%=100;}if(x>=20){s+=b[Math.floor(x/10)]+' '+a[x%10]+' ';}else s+=a[x]+' ';return s.trim();};
+  let w='';
+  if(n>=10000000){w+=g(Math.floor(n/10000000))+' Crore ';n%=10000000;}
+  if(n>=100000){w+=g(Math.floor(n/100000))+' Lakh ';n%=100000;}
+  if(n>=1000){w+=g(Math.floor(n/1000))+' Thousand ';n%=1000;}
+  if(n>0)w+=g(n);
+  return w.trim()+' Rupees Only';
+}
+
+// ====== DECODE PIPE DATA ======
+// Format: ref|bank|acc|name|mobile|acctype|type|amt|date|time|detail1~detail2~...
+function decodePipe(pipeStr){
+  const p = pipeStr.split('|');
+  const d = {
+    ref:p[0]||'', bank:p[1]||'', acc:p[2]||'',
+    name:p[3]||'', mobile:p[4]||'', acctype:p[5]||'',
+    type:p[6]||'', amt:p[7]||'', date:p[8]||'', time:p[9]||''
+  };
+  // Detail values (index 10 onwards, tilde-separated)
+  if(p[10]){
+    const dets = p.slice(10).join('|').split('~').filter(Boolean);
+    dets.forEach((v,i)=>{ if(v) d['detail'+(i+1)]=v; });
+  }
+  return d;
+}
+
+// ====== BUILD SLIP ======
+function buildSlip(d){
+  const type=d.type||'Transaction';
+  const amt=parseFloat(d.amt)||0;
+  const amtFmt=amt?'&#8377; '+amt.toLocaleString('en-IN'):'';
+  const words=amt?numWords(amt):'';
+  // Build detail rows from detail1, detail2... fields
+  const meta=new Set(['ref','bank','acc','name','mobile','acctype','type','amt','date','time']);
+  let rows='';
+  Object.entries(d).forEach(([k,v])=>{
+    if(meta.has(k)||!v) return;
+    rows+=`<tr><th>${k}</th><td>${v}</td></tr>`;
+  });
+  if(amtFmt) rows+=`<tr><th><strong>Amount</strong></th><td><strong>${amtFmt}</strong></td></tr>`;
+  const clr={DD:['#ffe0c8','#fff3e8'],FD:['#e8d8f8','#f5f0ff'],RD:['#d8f0f8','#f0faff'],Loan:['#d4ffe8','#f0fff8']};
+  const [bBg,cBg]=clr[type]||['#d4e8ff','#fffde8'];
+  const copy=(label,bg)=>`
+    <div class="slip" style="background:${bg}">
+      <div class="slip-copy-tag">${label} COPY</div>
+      <div class="slip-header">
+        <div class="slip-bank-name">${d.bank||''}</div>
+        <div class="slip-type">${type.toUpperCase()} REQUISITION SLIP</div>
+      </div>
+      <div class="slip-grid">
+        <div class="slip-cell"><strong>Account No.</strong>${d.acc||''}${d.acctype?' ('+d.acctype+')':''}</div>
+        <div class="slip-cell"><strong>Date</strong>${d.date||''}</div>
+        <div class="slip-cell"><strong>Account Holder</strong>${d.name||''}</div>
+        <div class="slip-cell"><strong>Mobile</strong>${d.mobile||''}</div>
+      </div>
+      <table class="slip-table">
+        <thead><tr><th colspan="2">${type} Details</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+      ${words?`<div class="slip-words"><strong>Amount in Words</strong>${words}</div>`:''}
+      <div class="slip-ref">Ref: ${d.ref||''} | ${d.date||''} ${d.time||''}</div>
+      <div class="slip-signs">
+        <div class="slip-sign"><div class="slip-sign-line"></div>Bank Cashier</div>
+        <div class="slip-sign"><div class="slip-sign-line"></div>Customer</div>
+      </div>
+    </div>`;
+  return `<div class="slip-page">
+    <div class="slip-top"><strong>KOLHAPUR CO-OPERATIVE BANKING PORTAL</strong>Transaction Requisition Slip | ${d.date||''} ${d.time||''}</div>
+    <div class="slip-wrap">${copy('BANK',bBg)}${copy('CUSTOMER',cBg)}</div>
+    <div class="slip-footer">— Cut here — | Bank Copy: Submit at Counter | Customer Copy: Retain as Receipt</div>
+  </div>`;
+}
+
+// ====== SHOW RECEIPT ======
+function showReceipt(pipeStr){
+  let d;
+  try{
+    d = decodePipe(pipeStr);
+    if(!d.type||!d.acc) throw new Error('Missing data');
+  }catch(e){
+    document.getElementById('waiting-mode').innerHTML =
+      '<div style="padding:30px;text-align:center;color:var(--red);"><h2>❌ Invalid QR</h2><p>Please ask the customer to generate a new QR from the portal.</p></div>';
+    return;
+  }
+  document.getElementById('receipt-body').innerHTML = buildSlip(d);
+  document.getElementById('waiting-mode').style.display='none';
+  document.getElementById('camera-mode').style.display='none';
+  document.getElementById('receipt-mode').style.display='block';
+  // Auto print
+  setTimeout(()=>window.print(), 800);
+}
+
+// ====== URL HASH DETECTION ======
+// When QR is scanned, URL opens with #base64data
+window.addEventListener('load', ()=>{
+  const hash = location.hash.slice(1);
+  if(hash){
+    try{
+      const pipeStr = atob(hash);
+      showReceipt(pipeStr);
+    }catch(e){
+      // Show waiting mode
+      document.getElementById('waiting-mode').style.display='block';
+    }
+  } else {
+    document.getElementById('waiting-mode').style.display='block';
+  }
+});
+
+function goBack(){
+  document.getElementById('receipt-mode').style.display='none';
+  document.getElementById('waiting-mode').style.display='block';
+  location.hash='';
+}
+
+// ====== CAMERA SCANNER (for staff use) ======
+let vid,can,ctx,scanning=false,raf;
+
+function startCamera(){
+  document.getElementById('waiting-mode').style.display='none';
+  document.getElementById('camera-mode').style.display='block';
+  vid=document.getElementById('video');
+  can=document.getElementById('canvas');
+  ctx=can.getContext('2d',{willReadFrequently:true});
+  navigator.mediaDevices.getUserMedia({video:{facingMode:'environment',width:{ideal:1920}}})
+    .then(stream=>{
+      vid.srcObject=stream; vid.play();
+      scanning=true; raf=requestAnimationFrame(tick);
+    })
+    .catch(e=>{
+      document.getElementById('cam-status').className='scan-status s-err';
+      document.getElementById('cam-status').textContent='❌ Camera error: '+e.message;
+    });
+}
+
+function stopCamera(){
+  scanning=false; cancelAnimationFrame(raf);
+  if(vid&&vid.srcObject){vid.srcObject.getTracks().forEach(t=>t.stop());vid.srcObject=null;}
+  document.getElementById('camera-mode').style.display='none';
+  document.getElementById('waiting-mode').style.display='block';
+}
+
+function tick(){
+  if(!scanning)return;
+  if(vid.readyState===vid.HAVE_ENOUGH_DATA){
+    can.width=vid.videoWidth; can.height=vid.videoHeight;
+    ctx.filter='contrast(1.5) brightness(1.1)';
+    ctx.drawImage(vid,0,0,can.width,can.height);
+    ctx.filter='none';
+    const img=ctx.getImageData(0,0,can.width,can.height);
+    const code=jsQR(img.data,img.width,img.height,{inversionAttempts:'attemptBoth'});
+    if(code&&code.data){
+      scanning=false; cancelAnimationFrame(raf);
+      // Extract hash from URL if it's a full URL
+      let data=code.data;
+      if(data.includes('#')) data=data.split('#')[1];
+      try{ showReceipt(atob(data)); }
+      catch(e){
+        document.getElementById('cam-status').className='scan-status s-err';
+        document.getElementById('cam-status').textContent='❌ Invalid QR — ask customer to regenerate';
+        setTimeout(()=>{ scanning=true; raf=requestAnimationFrame(tick); },3000);
+      }
+      return;
+    }
+  }
+  raf=requestAnimationFrame(tick);
+}
+</script>
+</body>
+</html>
