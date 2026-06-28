@@ -138,20 +138,26 @@ html,body{height:100%;font-family:'DM Sans',sans-serif;background:#000;}
 <div id="print-zone" style="display:none;"></div>
 
 <script>
-// ====== COMPACT KEY MAP (matches bank_portal.html short keys) ======
-const keyMap = {
-  r:'ref', b:'bank', a:'acc', n:'name', m:'mobile', t:'acctype',
-  tp:'type', am:'amt', dt:'date', ti:'time',
-  bn:'benName', ba:'benAcc', bi:'benIFSC', bb:'benBank', rm:'remarks',
-  fv:'favor', py:'payable', pu:'purpose', tn:'tenure', in:'interest',
-  au:'auto', nm:'nominee', rl:'relation', jt:'joint', mo:'month',
-  lt:'loanType', md:'mode', sv:'service', ns:'nos', lv:'leaves',
-  kt:'kycType', dn:'docno', nv:'newval', tb:'tab', cn:'chqNo', cb:'chqBank'
-};
-
-function expandKeys(compact) {
-  const d = {};
-  Object.entries(compact).forEach(([k,v]) => { d[keyMap[k]||k] = v; });
+// ====== DECODE PIPE FORMAT QR ======
+// Format: ref|bank|acc|name|mobile|acctype|type|amt|date|time|detail1|detail2...
+function decodePipe(raw) {
+  const parts = raw.split('|');
+  const d = {
+    ref:     parts[0]||'',
+    bank:    parts[1]||'',
+    acc:     parts[2]||'',
+    name:    parts[3]||'',
+    mobile:  parts[4]||'',
+    acctype: parts[5]||'',
+    type:    parts[6]||'',
+    amt:     parts[7]||'',
+    date:    parts[8]||'',
+    time:    parts[9]||''
+  };
+  // Extra detail fields (index 10+) stored as generic detail1, detail2...
+  for(let i=10; i<parts.length; i++) {
+    if(parts[i]) d['detail'+(i-9)] = parts[i];
+  }
   return d;
 }
 
@@ -301,8 +307,13 @@ function onQR(raw){
         parsed=JSON.parse(decodeURIComponent(escape(atob(raw.split('#receipt=')[1]))));
       else throw new Error('Cannot decode');
     }
-    // Expand compact keys
-    d=expandKeys(parsed);
+    // Decode pipe format
+    if(typeof parsed === 'string') {
+      d = decodePipe(parsed);
+    } else {
+      // Fallback: old JSON format
+      d = decodePipe(Object.values(parsed).join('|'));
+    }
     if(!d.type||!d.acc) throw new Error('Missing fields');
   }catch(e){
     setStatus('err','❌ Could not read QR. Ask customer to show QR clearly and try again.');
